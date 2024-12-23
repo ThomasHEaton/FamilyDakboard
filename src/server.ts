@@ -54,12 +54,35 @@ app.use((err: Error, _: Request, res: Response, next: NextFunction) => {
   return next(err);
 });
 
-app.get('/link', async (req: Request, res: Response) => {
+const apiKeyMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  if (req.query.api_key != Env.ApiKey) {
+    return next(new RouteError(HttpStatusCodes.UNAUTHORIZED, 'Unauthorized'));
+  }
+
+  next()
+}
+
+app.get('/link', apiKeyMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   const response = await axios.get('https://dakboard.com/link')
   res.send(response.data)
 })
 
-app.use('*', async (req: Request, res: Response) => {
+app.get('/display/uuid/:uuid', apiKeyMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  const response = await instance.request({
+    url: `https://dakboard.com${req.originalUrl}`,
+    method: req.method,
+    headers: req.headers,
+    data: req.body,
+    responseType: 'arraybuffer'
+  })
+
+  logger.info(inspect(response.data))
+
+  res.header('content-type', response.headers['content-type'])
+    .send(Buffer.from(response.data, 'binary'))
+})
+
+app.use('*', async (req: Request, res: Response, next: NextFunction) => {
   logger.info(`https://dakboard.com${req.originalUrl}`)
   const response = await instance.request({
       url: `https://dakboard.com${req.originalUrl}`,
